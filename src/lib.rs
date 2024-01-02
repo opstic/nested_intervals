@@ -2,6 +2,7 @@ use itertools::Itertools;
 use std::cmp::{max, min, Ordering};
 use std::collections::HashMap;
 use std::ops::Range;
+use num::{Num, ToPrimitive};
 use superslice::*;
 
 trait FilterByBools<T> {
@@ -27,7 +28,7 @@ where
 
 /// IntervalSetGeneric
 ///
-/// A collection of Range<Copy + PartialOrd> and associated ids (u32).
+/// A collection of Range<Copy + Ord + num::Num> and associated ids (u32).
 ///
 /// If no ids are supplied, default ones will be provided.
 /// Merging functions return sorted ids
@@ -39,7 +40,7 @@ where
 /// Internal storage is sorted by (start, -end), which is enforced
 /// at construction time.
 #[derive(Debug)]
-pub struct IntervalSetGeneric<T: Copy + PartialOrd> {
+pub struct IntervalSetGeneric<T: Copy + Ord + num::Num> {
     intervals: Vec<Range<T>>,
     ids: Vec<Vec<u32>>,
     root: Option<IntervalSetEntry>,
@@ -63,7 +64,7 @@ struct IntervalSetEntry {
     children: Vec<IntervalSetEntry>,
 }
 
-impl<T: Copy + PartialOrd> Clone for IntervalSetGeneric<T> {
+impl<T: Copy + Ord + num::Num> Clone for IntervalSetGeneric<T> {
     fn clone(&self) -> IntervalSetGeneric<T> {
         IntervalSetGeneric {
             intervals: self.intervals.clone(),
@@ -82,16 +83,16 @@ impl Clone for IntervalSetEntry {
     }
 }
 
-trait IntervalCollector<T: Copy + PartialOrd> {
+trait IntervalCollector<T: Copy + Ord + num::Num> {
     fn collect(&mut self, iset: &IntervalSetGeneric<T>, no: u32);
 }
 
-struct VecIntervalCollector<T: Copy + PartialOrd> {
+struct VecIntervalCollector<T: Copy + Ord + num::Num> {
     intervals: Vec<Range<T>>,
     ids: Vec<Vec<u32>>,
 }
 
-impl<T: Copy + PartialOrd> VecIntervalCollector<T> {
+impl<T: Copy + Ord + num::Num> VecIntervalCollector<T> {
     fn new() -> VecIntervalCollector<T> {
         VecIntervalCollector {
             intervals: Vec::new(),
@@ -100,7 +101,7 @@ impl<T: Copy + PartialOrd> VecIntervalCollector<T> {
     }
 }
 
-impl<T: Copy + PartialOrd> IntervalCollector<T> for VecIntervalCollector<T> {
+impl<T: Copy + Ord + num::Num> IntervalCollector<T> for VecIntervalCollector<T> {
     fn collect(&mut self, iset: &IntervalSetGeneric<T>, no: u32) {
         self.intervals.push(iset.intervals[no as usize].clone());
         self.ids.push(iset.ids[no as usize].clone());
@@ -110,15 +111,15 @@ struct TagIntervalCollector{
     hit: Vec<bool>,
 }
 
-impl  TagIntervalCollector {
-    fn new<T: Copy + PartialOrd>(iset: &IntervalSetGeneric<T>) -> TagIntervalCollector {
+impl TagIntervalCollector {
+    fn new<T: Copy + Ord + Num + ToPrimitive>(iset: &IntervalSetGeneric<T>) -> TagIntervalCollector {
         TagIntervalCollector {
             hit: vec![false; iset.len()],
         }
     }
 }
 
-impl<T: Copy + PartialOrd> IntervalCollector<T> for TagIntervalCollector {
+impl<T: Copy + Ord + num::Num> IntervalCollector<T> for TagIntervalCollector {
     fn collect(&mut self, _iset: &IntervalSetGeneric<T>, no: u32) {
         self.hit[no as usize] = true;
     }
@@ -126,7 +127,7 @@ impl<T: Copy + PartialOrd> IntervalCollector<T> for TagIntervalCollector {
 
 /// nclists are based on sorting the intervals by (start, -end)
 #[allow(clippy::needless_return)]
-fn nclist_range_sort<T: Copy + PartialOrd>(a: &Range<T>, b: &Range<T>) -> Ordering {
+fn nclist_range_sort<T: Copy + Ord + num::Num>(a: &Range<T>, b: &Range<T>) -> Ordering {
     if a.start < b.start {
         return Ordering::Less;
     } else if a.start > b.start {
@@ -148,7 +149,7 @@ pub enum NestedIntervalError {
     IntervalIdMisMatch,
 }
 
-impl<T: Copy + PartialOrd + num::Num> IntervalSetGeneric<T> {
+impl<T: Copy + Ord + Num + ToPrimitive> IntervalSetGeneric<T> {
     /// Create an IntervalSet without supplying ids
     ///
     /// ids will be 0..n in the order of the *sorted* intervals
@@ -797,8 +798,8 @@ impl<T: Copy + PartialOrd + num::Num> IntervalSetGeneric<T> {
     }
 }
 
-impl<T: Copy + PartialOrd> Eq for IntervalSetGeneric<T> {}
-impl<T: Copy + PartialOrd> PartialEq for IntervalSetGeneric<T> {
+impl<T: Copy + Ord + num::Num> Eq for IntervalSetGeneric<T> {}
+impl<T: Copy + Ord + num::Num> PartialEq for IntervalSetGeneric<T> {
     fn eq(&self, other: &IntervalSetGeneric<T>) -> bool {
         (self.intervals == other.intervals) && (self.ids == other.ids)
     }
@@ -810,7 +811,7 @@ pub trait RangePlus<T> {
     fn overlaps(&self, other: &Range<T>) -> bool;
 }
 
-impl<T: Copy + PartialOrd> RangePlus<T> for Range<T> {
+impl<T: Copy + Ord + num::Num> RangePlus<T> for Range<T> {
     fn overlaps(&self, other: &Range<T>) -> bool {
         self.start < other.end && other.start < self.end && other.start < other.end
     }
