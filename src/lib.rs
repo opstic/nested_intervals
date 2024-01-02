@@ -24,24 +24,10 @@ where
     }
 }
 
-/// the integer type for the interval's ranges.
-/// e.g. u32, u64
-pub trait Rangable: num::PrimInt { }
-
-impl Rangable for u16 {}
-impl Rangable for u32 {}
-impl Rangable for u64 {}
-impl Rangable for u128 {}
-
-impl Rangable for i16 {}
-impl Rangable for i32 {}
-impl Rangable for i64 {}
-impl Rangable for i128 {}
-
 
 /// IntervalSetGeneric
 ///
-/// A collection of Range<Rangable> and associated ids (u32).
+/// A collection of Range<Copy + PartialOrd> and associated ids (u32).
 ///
 /// If no ids are supplied, default ones will be provided.
 /// Merging functions return sorted ids
@@ -53,7 +39,7 @@ impl Rangable for i128 {}
 /// Internal storage is sorted by (start, -end), which is enforced
 /// at construction time.
 #[derive(Debug)]
-pub struct IntervalSetGeneric<T: Rangable> {
+pub struct IntervalSetGeneric<T: Copy + PartialOrd> {
     intervals: Vec<Range<T>>,
     ids: Vec<Vec<u32>>,
     root: Option<IntervalSetEntry>,
@@ -77,7 +63,7 @@ struct IntervalSetEntry {
     children: Vec<IntervalSetEntry>,
 }
 
-impl<T: Rangable> Clone for IntervalSetGeneric<T> {
+impl<T: Copy + PartialOrd> Clone for IntervalSetGeneric<T> {
     fn clone(&self) -> IntervalSetGeneric<T> {
         IntervalSetGeneric {
             intervals: self.intervals.clone(),
@@ -96,16 +82,16 @@ impl Clone for IntervalSetEntry {
     }
 }
 
-trait IntervalCollector<T: Rangable> {
+trait IntervalCollector<T: Copy + PartialOrd> {
     fn collect(&mut self, iset: &IntervalSetGeneric<T>, no: u32);
 }
 
-struct VecIntervalCollector<T: Rangable> {
+struct VecIntervalCollector<T: Copy + PartialOrd> {
     intervals: Vec<Range<T>>,
     ids: Vec<Vec<u32>>,
 }
 
-impl<T: Rangable> VecIntervalCollector<T> {
+impl<T: Copy + PartialOrd> VecIntervalCollector<T> {
     fn new() -> VecIntervalCollector<T> {
         VecIntervalCollector {
             intervals: Vec::new(),
@@ -114,7 +100,7 @@ impl<T: Rangable> VecIntervalCollector<T> {
     }
 }
 
-impl<T: Rangable> IntervalCollector<T> for VecIntervalCollector<T> {
+impl<T: Copy + PartialOrd> IntervalCollector<T> for VecIntervalCollector<T> {
     fn collect(&mut self, iset: &IntervalSetGeneric<T>, no: u32) {
         self.intervals.push(iset.intervals[no as usize].clone());
         self.ids.push(iset.ids[no as usize].clone());
@@ -125,14 +111,14 @@ struct TagIntervalCollector{
 }
 
 impl  TagIntervalCollector {
-    fn new<T: Rangable>(iset: &IntervalSetGeneric<T>) -> TagIntervalCollector {
+    fn new<T: Copy + PartialOrd>(iset: &IntervalSetGeneric<T>) -> TagIntervalCollector {
         TagIntervalCollector {
             hit: vec![false; iset.len()],
         }
     }
 }
 
-impl<T: Rangable> IntervalCollector<T> for TagIntervalCollector {
+impl<T: Copy + PartialOrd> IntervalCollector<T> for TagIntervalCollector {
     fn collect(&mut self, _iset: &IntervalSetGeneric<T>, no: u32) {
         self.hit[no as usize] = true;
     }
@@ -140,7 +126,7 @@ impl<T: Rangable> IntervalCollector<T> for TagIntervalCollector {
 
 /// nclists are based on sorting the intervals by (start, -end)
 #[allow(clippy::needless_return)]
-fn nclist_range_sort<T: Rangable>(a: &Range<T>, b: &Range<T>) -> Ordering {
+fn nclist_range_sort<T: Copy + PartialOrd>(a: &Range<T>, b: &Range<T>) -> Ordering {
     if a.start < b.start {
         return Ordering::Less;
     } else if a.start > b.start {
@@ -162,7 +148,7 @@ pub enum NestedIntervalError {
     IntervalIdMisMatch,
 }
 
-impl<T: Rangable> IntervalSetGeneric<T> {
+impl<T: Copy + PartialOrd + num::Num> IntervalSetGeneric<T> {
     /// Create an IntervalSet without supplying ids
     ///
     /// ids will be 0..n in the order of the *sorted* intervals
@@ -811,8 +797,8 @@ impl<T: Rangable> IntervalSetGeneric<T> {
     }
 }
 
-impl<T: Rangable> Eq for IntervalSetGeneric<T> {}
-impl<T: Rangable> PartialEq for IntervalSetGeneric<T> {
+impl<T: Copy + PartialOrd> Eq for IntervalSetGeneric<T> {}
+impl<T: Copy + PartialOrd> PartialEq for IntervalSetGeneric<T> {
     fn eq(&self, other: &IntervalSetGeneric<T>) -> bool {
         (self.intervals == other.intervals) && (self.ids == other.ids)
     }
@@ -824,7 +810,7 @@ pub trait RangePlus<T> {
     fn overlaps(&self, other: &Range<T>) -> bool;
 }
 
-impl<T: Rangable> RangePlus<T> for Range<T> {
+impl<T: Copy + PartialOrd> RangePlus<T> for Range<T> {
     fn overlaps(&self, other: &Range<T>) -> bool {
         self.start < other.end && other.start < self.end && other.start < other.end
     }
